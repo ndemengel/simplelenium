@@ -43,19 +43,24 @@ class Retry {
     throw lastError;
   }
 
-  <T> Verification verify(Supplier<T> targetSupplier, Predicate<T> predicate) {
-    Verification result = Verification.KO;
+  <T> Verification verify(Supplier<T> targetSupplier, Predicate<T> predicate, Function<T, String> clueExtractor) {
+    Verification result = Verification.ko();
 
     long start = System.currentTimeMillis();
     while ((System.currentTimeMillis() - start) < timeoutInMs) {
       try {
-        if (predicate.test(targetSupplier.get())) {
-          return Verification.OK;
+        T target = targetSupplier.get();
+        if (predicate.test(target)) {
+          return Verification.ok();
         }
 
-        result = Verification.KO;
+        if (clueExtractor == null) {
+          result = Verification.ko();
+        } else {
+          result = Verification.ko(clueExtractor.apply(target));
+        }
       } catch (NotFoundException e) {
-        result = Verification.NOT_FOUND;
+        result = Verification.notFound();
       }
     }
 

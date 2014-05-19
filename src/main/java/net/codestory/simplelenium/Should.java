@@ -47,7 +47,11 @@ public class Should {
   }
 
   public void contain(String... texts) {
-    verify("contains(" + join(";", texts) + ")", this::find, element -> of(texts).allMatch(expected -> element.getText().contains(expected)));
+    verify(
+        "contains(" + join(";", texts) + ")",
+        this::find,
+        element -> of(texts).allMatch(expected -> element.getText().contains(expected)),
+        element -> "hasText(" + element.getText() + ")");
   }
 
   public void notContain(String text) {
@@ -87,18 +91,20 @@ public class Should {
   }
 
   private <T> void verify(String message, Supplier<T> target, Predicate<T> predicate) {
-    String verification = "verify that " + toString(selector) + " " + message;
+    verify(message, target, predicate, null);
+  }
 
-    System.out.println("   -> " + verification);
+  private <T> void verify(String verificationDesc, Supplier<T> target, Predicate<T> predicate, Function<T, String> clueExtractor) {
+    String selectorDesc = toString(selector);
 
-    Verification result = retry.verify(target, predicate);
-    if (result == NOT_FOUND) {
-      throw new AssertionError("Element not found. Failed to " + verification);
+    System.out.println("   -> verify that " + selectorDesc + " " + verificationDesc);
+
+    Verification result = retry.verify(target, predicate, clueExtractor);
+    if (!result.isNotFound() && result.isOk() != not) {
+      return; // success
     }
 
-    if ((not && (result != KO)) || (!not && (result != OK))) {
-      throw new AssertionError("Failed to " + verification);
-    }
+    throw new AssertionError(result.description(selectorDesc, verificationDesc, not));
   }
 
   private static String toString(By selector) {
